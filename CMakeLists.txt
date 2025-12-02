@@ -339,6 +339,9 @@ endif ()
 ## Source building ##
 add_subdirectory(src)
 
+## PonyNotes Integration Library ##
+add_subdirectory(libponynotes)
+
 ## Tests ##
 option (ENABLE_GTEST "Enable gtest build for xournalpp application" OFF)
 if (ENABLE_GTEST)
