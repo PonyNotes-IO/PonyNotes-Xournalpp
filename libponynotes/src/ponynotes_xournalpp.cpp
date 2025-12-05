@@ -72,9 +72,9 @@ extern "C" int pn_xournal_doc_create(PN_DOC_HANDLE* out_doc, const char* options
         auto pn_doc = std::make_unique<PonyNotesDocument>();
         
         // 创建默认页面（TODO: 根据options_json配置页面大小等）
-        PageRef page = std::make_shared<XojPage>();
+        // A4 尺寸：595.275591 x 841.889764 points
+        PageRef page = std::make_shared<XojPage>(595.275591, 841.889764);
         page->setBackgroundType(PageType(PageTypeFormat::Plain));
-        Document::setPageSize(page, 595.275591, 841.889764); // A4 尺寸
         
         pn_doc->doc->lock();
         pn_doc->doc->addPage(page);
@@ -99,14 +99,54 @@ extern "C" int pn_xournal_doc_open(PN_DOC_HANDLE* out_doc, const char* xopp_path
     }
     
     try {
-        auto pn_doc = std::make_unique<PonyNotesDocument>();
-        
         // 使用LoadHandler加载xopp文件
         LoadHandler loader;
-        loader.loadFile(pn_doc->doc.get(), xopp_path);
+        auto loaded_doc = loader.loadDocument(xopp_path);
         
-        if (pn_doc->doc->getLastErrorMsg().length() > 0) {
+        if (!loaded_doc) {
             return PN_ERROR_FILE_NOT_FOUND;
+        }
+        
+        if (loader.getLastError().length() > 0) {
+            return PN_ERROR_FILE_NOT_FOUND;
+        }
+        
+        auto pn_doc = std::make_unique<PonyNotesDocument>();
+        pn_doc->doc = std::move(loaded_doc);
+        
+        PN_DOC_HANDLE handle = pn_doc.get();
+        
+        std::lock_guard<std::mutex> lock(g_documents_mutex);
+        g_documents[handle] = std::move(pn_doc);
+        
+        *out_doc = handle;
+        return PN_SUCCESS;
+    } catch (...) {
+        return PN_ERROR_UNKNOWN;
+    }
+}
+
+// 打开PDF文档
+extern "C" int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_path, int attach_to_document) {
+    if (!g_initialized || !out_doc || !pdf_path) {
+        return PN_ERROR_INVALID_PARAM;
+    }
+    
+    try {
+        auto pn_doc = std::make_unique<PonyNotesDocument>();
+        
+        // 使用Document::readPdf加载PDF文件
+        // attach_to_document: 0=替换当前文档, 1=附加到当前文档
+        bool attach = (attach_to_document != 0);
+        bool success = pn_doc->doc->readPdf(pdf_path, /*initPages=*/true, attach);
+        
+        if (!success) {
+            // 获取错误信息
+            std::string error = pn_doc->doc->getLastErrorMsg();
+            if (error.empty()) {
+                return PN_ERROR_FILE_NOT_FOUND;
+            }
+            return PN_ERROR_IO_ERROR;
         }
         
         PN_DOC_HANDLE handle = pn_doc.get();
@@ -140,8 +180,8 @@ extern "C" int pn_xournal_doc_save(PN_DOC_HANDLE doc, const char* xopp_path) {
         pn_doc->doc->setFilepath(xopp_path);
         
         SaveHandler saver;
-        saver.prepareSave(pn_doc->doc.get());
-        saver.saveTo(pn_doc->doc.get(), xopp_path);
+        saver.prepareSave(pn_doc->doc.get(), xopp_path);
+        saver.saveTo(xopp_path);
         
         pn_doc->doc->unlock();
         

@@ -43,6 +43,7 @@ PN_API int pn_xournal_shutdown(void);
 // 文档生命周期
 PN_API int pn_xournal_doc_create(PN_DOC_HANDLE* out_doc, const char* options_json);
 PN_API int pn_xournal_doc_open(PN_DOC_HANDLE* out_doc, const char* xopp_path);
+PN_API int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_path, int attach_to_document);
 PN_API int pn_xournal_doc_save(PN_DOC_HANDLE doc, const char* xopp_path);
 PN_API int pn_xournal_doc_close(PN_DOC_HANDLE doc);
 
