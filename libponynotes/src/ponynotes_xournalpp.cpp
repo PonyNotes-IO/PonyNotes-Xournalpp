@@ -156,11 +156,28 @@ extern "C" int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_p
         // 如果文档包含PDF页面，创建PdfCache用于渲染PDF背景
         pn_doc->doc->lock();
         size_t pdfPageCount = pn_doc->doc->getPdfPageCount();
-        g_message("[ponynotes_xournalpp] PDF opened, pdfPageCount=%zu", pdfPageCount);
+        size_t pageCount = pn_doc->doc->getPageCount();
+        g_message("[ponynotes_xournalpp] PDF opened, pdfPageCount=%zu, pageCount=%zu", pdfPageCount, pageCount);
+        
+        // 检查页面背景类型
+        if (pageCount > 0) {
+            PageRef firstPage = pn_doc->doc->getPage(0);
+            PageType bgType = firstPage->getBackgroundType();
+            bool isPdfPage = bgType.isPdfPage();
+            size_t pdfPageNr = firstPage->getPdfPageNr();
+            g_message("[ponynotes_xournalpp] First page: isPdfPage=%d, pdfPageNr=%zu", isPdfPage, pdfPageNr);
+        }
+        
         if (pdfPageCount > 0) {
-            // 创建PdfCache，Settings传nullptr使用默认设置
-            pn_doc->pdfCache = std::make_unique<PdfCache>(pn_doc->doc->getPdfDocument(), nullptr);
-            g_message("[ponynotes_xournalpp] PdfCache created successfully");
+            try {
+                // 创建PdfCache，Settings传nullptr使用默认设置
+                pn_doc->pdfCache = std::make_unique<PdfCache>(pn_doc->doc->getPdfDocument(), nullptr);
+                g_message("[ponynotes_xournalpp] PdfCache created successfully, pointer=%p", pn_doc->pdfCache.get());
+            } catch (const std::exception& e) {
+                g_warning("[ponynotes_xournalpp] Failed to create PdfCache: %s", e.what());
+            } catch (...) {
+                g_warning("[ponynotes_xournalpp] Failed to create PdfCache: unknown exception");
+            }
         } else {
             g_warning("[ponynotes_xournalpp] PDF opened but pdfPageCount is 0");
         }
@@ -342,8 +359,9 @@ extern "C" int pn_xournal_doc_render_page_to_png(
         PageType bgType = page->getBackgroundType();
         bool isPdfPage = bgType.isPdfPage();
         size_t pdfPageNr = page->getPdfPageNr();
-        g_message("[ponynotes_xournalpp] Rendering page %d: isPdfPage=%d, pdfPageNr=%zu, pdfCache=%p", 
-                  page_index, isPdfPage, pdfPageNr, pn_doc->pdfCache.get());
+        int bgFormat = static_cast<int>(bgType.format);
+        g_message("[ponynotes_xournalpp] Rendering page %d: isPdfPage=%d, pdfPageNr=%zu, bgFormat=%d, pdfCache=%p", 
+                  page_index, isPdfPage, pdfPageNr, bgFormat, pn_doc->pdfCache.get());
         
         // 计算缩放比例
         double pageWidth = page->getWidth();
@@ -359,17 +377,28 @@ extern "C" int pn_xournal_doc_render_page_to_png(
         // 创建Cairo surface
         cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, renderWidth, renderHeight);
         if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+            g_warning("[ponynotes_xournalpp] Failed to create Cairo surface");
             return PN_ERROR_IO_ERROR;
         }
+        
+        // 设置设备缩放为1.0（确保PdfBackgroundView的断言通过）
+        cairo_surface_set_device_scale(surface, 1.0, 1.0);
         
         cairo_t* cr = cairo_create(surface);
         if (!cr || cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
             cairo_surface_destroy(surface);
+            g_warning("[ponynotes_xournalpp] Failed to create Cairo context");
             return PN_ERROR_IO_ERROR;
         }
         
-        // 缩放画布
+        // 缩放画布（均匀缩放，确保PdfBackgroundView的断言通过）
         cairo_scale(cr, scale, scale);
+        
+        // 验证矩阵（用于调试）
+        cairo_matrix_t matrix = {0};
+        cairo_get_matrix(cr, &matrix);
+        g_message("[ponynotes_xournalpp] Cairo matrix: xx=%.6f, yy=%.6f, xy=%.6f, yx=%.6f, scale=%.6f", 
+                  matrix.xx, matrix.yy, matrix.xy, matrix.yx, scale);
         
         // 使用DocumentView渲染页面
         DocumentView view;
