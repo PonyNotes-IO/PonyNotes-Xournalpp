@@ -20,11 +20,15 @@
 #include "control/xojfile/SaveHandler.h"
 #include "view/DocumentView.h"
 #include "view/background/BackgroundFlags.h"
+#include "control/PdfCache.h"
+#include <glib.h>  // for g_message, g_warning
+#include <iostream>  // for std::cerr
 
 // 内部文档包装结构
 struct PonyNotesDocument {
     std::shared_ptr<Document> doc;
     std::shared_ptr<DocumentHandler> handler;
+    std::unique_ptr<PdfCache> pdfCache;  // PDF缓存，用于渲染PDF背景
     std::mutex mutex;
     
     PonyNotesDocument() {
@@ -148,6 +152,19 @@ extern "C" int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_p
             }
             return PN_ERROR_IO_ERROR;
         }
+        
+        // 如果文档包含PDF页面，创建PdfCache用于渲染PDF背景
+        pn_doc->doc->lock();
+        size_t pdfPageCount = pn_doc->doc->getPdfPageCount();
+        g_message("[ponynotes_xournalpp] PDF opened, pdfPageCount=%zu", pdfPageCount);
+        if (pdfPageCount > 0) {
+            // 创建PdfCache，Settings传nullptr使用默认设置
+            pn_doc->pdfCache = std::make_unique<PdfCache>(pn_doc->doc->getPdfDocument(), nullptr);
+            g_message("[ponynotes_xournalpp] PdfCache created successfully");
+        } else {
+            g_warning("[ponynotes_xournalpp] PDF opened but pdfPageCount is 0");
+        }
+        pn_doc->doc->unlock();
         
         PN_DOC_HANDLE handle = pn_doc.get();
         
@@ -321,6 +338,13 @@ extern "C" int pn_xournal_doc_render_page_to_png(
             return PN_ERROR_INVALID_PARAM;
         }
         
+        // 调试：检查页面背景类型
+        PageType bgType = page->getBackgroundType();
+        bool isPdfPage = bgType.isPdfPage();
+        size_t pdfPageNr = page->getPdfPageNr();
+        g_message("[ponynotes_xournalpp] Rendering page %d: isPdfPage=%d, pdfPageNr=%zu, pdfCache=%p", 
+                  page_index, isPdfPage, pdfPageNr, pn_doc->pdfCache.get());
+        
         // 计算缩放比例
         double pageWidth = page->getWidth();
         double pageHeight = page->getHeight();
@@ -349,12 +373,26 @@ extern "C" int pn_xournal_doc_render_page_to_png(
         
         // 使用DocumentView渲染页面
         DocumentView view;
+        
+        // 设置PdfCache（如果存在），用于渲染PDF背景
+        if (pn_doc->pdfCache) {
+            view.setPdfCache(pn_doc->pdfCache.get());
+            g_message("[ponynotes_xournalpp] PdfCache set to DocumentView");
+        } else {
+            g_warning("[ponynotes_xournalpp] PdfCache is null, PDF background may not render");
+        }
+        
         xoj::view::BackgroundFlags flags;
         flags.showPDF = xoj::view::SHOW_PDF_BACKGROUND;
         flags.showImage = xoj::view::SHOW_IMAGE_BACKGROUND;
         flags.showRuling = xoj::view::SHOW_RULING_BACKGROUND;
         
+        g_message("[ponynotes_xournalpp] Calling drawPage with flags: showPDF=%d, showImage=%d, showRuling=%d",
+                  flags.showPDF, flags.showImage, flags.showRuling);
+        
         view.drawPage(page, cr, true /* dont render editing stroke */, flags);
+        
+        g_message("[ponynotes_xournalpp] drawPage completed");
         
         // 导出为PNG
         cairo_status_t status = cairo_surface_write_to_png(surface, png_path);
