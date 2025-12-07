@@ -1,0 +1,11 @@
+_pn_xournal_init
+_pn_xournal_shutdown
+_pn_xournal_doc_create
+_pn_xournal_doc_open
+_pn_xournal_doc_open_pdf
+_pn_xournal_doc_save
+_pn_xournal_doc_close
+_pn_xournal_doc_handle_stroke
+_pn_xournal_doc_render_page_to_png
+_pn_xournal_doc_get_page_count
+_pn_xournal_doc_get_page_size

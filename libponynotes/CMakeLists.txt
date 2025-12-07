@@ -27,6 +27,15 @@ target_link_libraries(ponynotes_xournalpp
 # 设置C++标准
 target_compile_features(ponynotes_xournalpp PUBLIC cxx_std_20)
 
+# macOS特定编译选项：确保符号可见性
+if(APPLE)
+    # 设置默认符号可见性为 default，确保符号被导出到动态符号表
+    # 这必须在使用 PN_API 宏之前设置
+    target_compile_options(ponynotes_xournalpp PRIVATE
+        -fvisibility=default
+    )
+endif()
+
 # 设置输出名称
 set_target_properties(ponynotes_xournalpp PROPERTIES
     OUTPUT_NAME "ponynotes_xournalpp"
@@ -40,9 +49,22 @@ if(APPLE)
         INSTALL_NAME_DIR "@rpath"
         BUILD_WITH_INSTALL_RPATH TRUE
     )
-    # 确保符号被正确导出
+    # 确保符号被正确导出到导出表
+    # 在 macOS 上，dlsym 查找的是导出表中的符号
+    # 使用 -Wl,-exported_symbol 显式导出每个符号
+    # 这是最可靠的方法，确保符号被正确导出
     target_link_options(ponynotes_xournalpp PRIVATE
-        -Wl,-export_dynamic
+        -Wl,-exported_symbol,_pn_xournal_init
+        -Wl,-exported_symbol,_pn_xournal_shutdown
+        -Wl,-exported_symbol,_pn_xournal_doc_create
+        -Wl,-exported_symbol,_pn_xournal_doc_open
+        -Wl,-exported_symbol,_pn_xournal_doc_open_pdf
+        -Wl,-exported_symbol,_pn_xournal_doc_save
+        -Wl,-exported_symbol,_pn_xournal_doc_close
+        -Wl,-exported_symbol,_pn_xournal_doc_handle_stroke
+        -Wl,-exported_symbol,_pn_xournal_doc_render_page_to_png
+        -Wl,-exported_symbol,_pn_xournal_doc_get_page_count
+        -Wl,-exported_symbol,_pn_xournal_doc_get_page_size
     )
     # 修复 portaudio 的框架链接问题
     # pkg-config 返回的格式是 "-framework CoreAudio AudioToolbox ..."
