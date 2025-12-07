@@ -40,6 +40,25 @@ if(APPLE)
         INSTALL_NAME_DIR "@rpath"
         BUILD_WITH_INSTALL_RPATH TRUE
     )
+    # 确保符号被正确导出
+    target_link_options(ponynotes_xournalpp PRIVATE
+        -Wl,-export_dynamic
+    )
+    # 修复 portaudio 的框架链接问题
+    # pkg-config 返回的格式是 "-framework CoreAudio AudioToolbox ..."
+    # 这是错误的，我们需要在链接选项的最后添加正确格式来覆盖
+    # 注意：必须在链接选项的最后，这样会覆盖错误的格式
+    # 使用 -Wl,-framework 格式，确保链接器正确识别
+    target_link_options(ponynotes_xournalpp PRIVATE
+        -Wl,-framework,CoreAudio
+        -Wl,-framework,AudioToolbox
+        -Wl,-framework,AudioUnit
+        -Wl,-framework,CoreFoundation
+        -Wl,-framework,CoreServices
+    )
+    # 注意：由于 portaudio 的 pkg-config 返回的框架链接格式错误
+    # 需要在构建时禁用 audio 支持（ENABLE_AUDIO=OFF）
+    # 或者修复 portaudio 的 pkg-config 文件
 endif()
 
 # Windows特定设置
@@ -48,4 +67,3 @@ if(WIN32)
         PREFIX ""
     )
 endif()
-

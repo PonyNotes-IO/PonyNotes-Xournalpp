@@ -44,7 +44,7 @@ static std::mutex g_documents_mutex;
 static bool g_initialized = false;
 
 // 初始化
-extern "C" int pn_xournal_init(const char* config_json) {
+extern "C" PN_API int pn_xournal_init(const char* config_json) {
     // TODO: 解析config_json，初始化必要的全局资源
     // 目前先简单标记为已初始化
     g_initialized = true;
@@ -52,7 +52,7 @@ extern "C" int pn_xournal_init(const char* config_json) {
 }
 
 // 反初始化
-extern "C" int pn_xournal_shutdown(void) {
+extern "C" PN_API int pn_xournal_shutdown(void) {
     std::lock_guard<std::mutex> lock(g_documents_mutex);
     
     // 关闭所有打开的文档
@@ -63,7 +63,7 @@ extern "C" int pn_xournal_shutdown(void) {
 }
 
 // 创建新文档
-extern "C" int pn_xournal_doc_create(PN_DOC_HANDLE* out_doc, const char* options_json) {
+extern "C" PN_API int pn_xournal_doc_create(PN_DOC_HANDLE* out_doc, const char* options_json) {
     if (!g_initialized) {
         return PN_ERROR_UNKNOWN;
     }
@@ -97,7 +97,7 @@ extern "C" int pn_xournal_doc_create(PN_DOC_HANDLE* out_doc, const char* options
 }
 
 // 打开文档
-extern "C" int pn_xournal_doc_open(PN_DOC_HANDLE* out_doc, const char* xopp_path) {
+extern "C" PN_API int pn_xournal_doc_open(PN_DOC_HANDLE* out_doc, const char* xopp_path) {
     if (!g_initialized || !out_doc || !xopp_path) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -131,7 +131,7 @@ extern "C" int pn_xournal_doc_open(PN_DOC_HANDLE* out_doc, const char* xopp_path
 }
 
 // 打开PDF文档
-extern "C" int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_path, int attach_to_document) {
+extern "C" PN_API int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_path, int attach_to_document) {
     if (!g_initialized || !out_doc || !pdf_path) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -196,7 +196,7 @@ extern "C" int pn_xournal_doc_open_pdf(PN_DOC_HANDLE* out_doc, const char* pdf_p
 }
 
 // 保存文档
-extern "C" int pn_xournal_doc_save(PN_DOC_HANDLE doc, const char* xopp_path) {
+extern "C" PN_API int pn_xournal_doc_save(PN_DOC_HANDLE doc, const char* xopp_path) {
     if (!doc || !xopp_path) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -226,7 +226,7 @@ extern "C" int pn_xournal_doc_save(PN_DOC_HANDLE doc, const char* xopp_path) {
 }
 
 // 关闭文档
-extern "C" int pn_xournal_doc_close(PN_DOC_HANDLE doc) {
+extern "C" PN_API int pn_xournal_doc_close(PN_DOC_HANDLE doc) {
     if (!doc) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -242,7 +242,7 @@ extern "C" int pn_xournal_doc_close(PN_DOC_HANDLE doc) {
 }
 
 // 处理笔迹
-extern "C" int pn_xournal_doc_handle_stroke(PN_DOC_HANDLE doc, const PN_STROKE_POINT* points, int count) {
+extern "C" PN_API int pn_xournal_doc_handle_stroke(PN_DOC_HANDLE doc, const PN_STROKE_POINT* points, int count) {
     if (!doc || !points || count <= 0) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -324,7 +324,7 @@ extern "C" int pn_xournal_doc_handle_stroke(PN_DOC_HANDLE doc, const PN_STROKE_P
 }
 
 // 渲染页面为PNG
-extern "C" int pn_xournal_doc_render_page_to_png(
+extern "C" PN_API int pn_xournal_doc_render_page_to_png(
     PN_DOC_HANDLE doc,
     int page_index,
     const char* png_path,
@@ -441,7 +441,7 @@ extern "C" int pn_xournal_doc_render_page_to_png(
 }
 
 // 获取页面数量
-extern "C" int pn_xournal_doc_get_page_count(PN_DOC_HANDLE doc, int* out_count) {
+extern "C" PN_API int pn_xournal_doc_get_page_count(PN_DOC_HANDLE doc, int* out_count) {
     if (!doc || !out_count) {
         return PN_ERROR_INVALID_PARAM;
     }
@@ -464,7 +464,7 @@ extern "C" int pn_xournal_doc_get_page_count(PN_DOC_HANDLE doc, int* out_count) 
 }
 
 // 获取页面尺寸
-extern "C" int pn_xournal_doc_get_page_size(PN_DOC_HANDLE doc, int page_index, double* out_width, double* out_height) {
+extern "C" PN_API int pn_xournal_doc_get_page_size(PN_DOC_HANDLE doc, int page_index, double* out_width, double* out_height) {
     if (!doc || !out_width || !out_height || page_index < 0) {
         return PN_ERROR_INVALID_PARAM;
     }
